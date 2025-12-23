@@ -95,15 +95,18 @@ RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION}
 RUN pip install --no-cache-dir supervisor
 
 # ============================================================================
-# VirtualGL (GPU-accelerated OpenGL)
+# VirtualGL (GPU-accelerated OpenGL) - Optional, for enhanced performance
 # ============================================================================
 ARG VIRTUALGL_VERSION=3.1.1
 RUN curl -fsSL -o /tmp/virtualgl.deb \
     "https://github.com/VirtualGL/virtualgl/releases/download/${VIRTUALGL_VERSION}/virtualgl_${VIRTUALGL_VERSION}_amd64.deb" \
-    && dpkg -i /tmp/virtualgl.deb || apt-get install -fy \
-    && rm /tmp/virtualgl.deb
+    && apt-get update \
+    && dpkg -i /tmp/virtualgl.deb || (apt-get install -fy && dpkg -i /tmp/virtualgl.deb) \
+    && rm /tmp/virtualgl.deb \
+    && rm -rf /var/lib/apt/lists/* \
+    || echo "VirtualGL installation failed - continuing without it"
 
-# Add VirtualGL to PATH
+# Add VirtualGL to PATH if installed
 ENV PATH="/opt/VirtualGL/bin:${PATH}"
 
 # ============================================================================
