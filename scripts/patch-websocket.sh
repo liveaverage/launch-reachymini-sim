@@ -1,50 +1,78 @@
 #!/bin/bash
 # =============================================================================
-# Patch Reachy Mini Dashboard JavaScript for WSS support
-# Fixes WebSocket URLs to use wss:// when page is loaded over HTTPS
+# Patch Reachy Mini Dashboard for WSS support
+# Injects a WebSocket override script into the HTML base template
+# This is more reliable than patching individual JS files
 # =============================================================================
 
-echo "🔧 Patching dashboard JavaScript for WSS support..."
+echo "🔧 Patching dashboard for WSS support..."
 
-# Find the reachy-mini dashboard static files
-DASHBOARD_DIR=$(python3 -c "import reachy_mini; import os; print(os.path.dirname(reachy_mini.__file__))" 2>/dev/null)
+# Find the base HTML template
+BASE_HTML="/usr/local/lib/python3.12/dist-packages/reachy_mini/daemon/app/dashboard/templates/base.html"
 
-if [ -z "$DASHBOARD_DIR" ]; then
-    echo "⚠️  Could not find reachy-mini installation directory"
+if [ ! -f "$BASE_HTML" ]; then
+    echo "⚠️  Could not find base.html at: $BASE_HTML"
+    # Try to find it
+    BASE_HTML=$(find /usr -name "base.html" -path "*reachy_mini*dashboard*" 2>/dev/null | head -1)
+    if [ -z "$BASE_HTML" ]; then
+        echo "❌ Could not locate base.html template"
+        exit 0
+    fi
+    echo "📁 Found base.html at: $BASE_HTML"
+fi
+
+# Check if already patched
+if grep -q "WSS_OVERRIDE_PATCHED" "$BASE_HTML" 2>/dev/null; then
+    echo "✅ Already patched, skipping"
     exit 0
 fi
 
-echo "📁 Dashboard directory: $DASHBOARD_DIR"
+# Create backup
+cp "$BASE_HTML" "${BASE_HTML}.bak"
 
-# Find all JS files and patch WebSocket URLs
-# Replace: new WebSocket('ws://' or new WebSocket(`ws://
-# With: protocol-aware version
+# The WebSocket override script - patches the constructor globally
+WS_OVERRIDE='<!-- WSS_OVERRIDE_PATCHED -->
+<script>
+(function() {
+    // Override WebSocket to automatically use wss:// on HTTPS pages
+    const OriginalWebSocket = window.WebSocket;
+    window.WebSocket = function(url, protocols) {
+        // If page is HTTPS and URL starts with ws://, upgrade to wss://
+        if (window.location.protocol === "https:" && url && url.startsWith("ws://")) {
+            url = "wss://" + url.substring(5);
+            console.log("[WSS Override] Upgraded WebSocket URL to:", url);
+        }
+        if (protocols !== undefined) {
+            return new OriginalWebSocket(url, protocols);
+        }
+        return new OriginalWebSocket(url);
+    };
+    window.WebSocket.prototype = OriginalWebSocket.prototype;
+    window.WebSocket.CONNECTING = OriginalWebSocket.CONNECTING;
+    window.WebSocket.OPEN = OriginalWebSocket.OPEN;
+    window.WebSocket.CLOSING = OriginalWebSocket.CLOSING;
+    window.WebSocket.CLOSED = OriginalWebSocket.CLOSED;
+    console.log("[WSS Override] WebSocket constructor patched for HTTPS compatibility");
+})();
+</script>'
 
-find "$DASHBOARD_DIR" -name "*.js" -type f 2>/dev/null | while read jsfile; do
-    if grep -q "WebSocket.*ws://" "$jsfile" 2>/dev/null; then
-        echo "   Patching: $jsfile"
-        
-        # Create backup
-        cp "$jsfile" "${jsfile}.bak"
-        
-        # Patch: Replace ws:// with protocol detection
-        # This handles both 'ws://' and `ws://` patterns
-        sed -i "s|new WebSocket('ws://|new WebSocket((window.location.protocol === 'https:' ? 'wss://' : 'ws://') + '|g" "$jsfile"
-        sed -i "s|new WebSocket(\`ws://|new WebSocket((window.location.protocol === 'https:' ? 'wss://' : 'ws://') + \`|g" "$jsfile"
-        
-        # Also handle WebSocket("ws://
-        sed -i 's|new WebSocket("ws://|new WebSocket((window.location.protocol === "https:" ? "wss://" : "ws://") + "|g' "$jsfile"
-    fi
-done
+# Inject the script right after <head> tag
+if grep -q "<head>" "$BASE_HTML"; then
+    echo "📝 Injecting WebSocket override into base.html..."
+    sed -i "s|<head>|<head>\n${WS_OVERRIDE}|" "$BASE_HTML"
+    echo "✅ WebSocket override injected successfully"
+else
+    echo "⚠️  Could not find <head> tag in base.html"
+    # Try after <!DOCTYPE or at the very beginning
+    echo "📝 Trying alternative injection point..."
+    sed -i "1i\\${WS_OVERRIDE}" "$BASE_HTML"
+fi
 
-# Also patch any hardcoded ws:// + location.host patterns
-find "$DASHBOARD_DIR" -name "*.js" -type f 2>/dev/null | while read jsfile; do
-    if grep -q "'ws://' *+ *location" "$jsfile" 2>/dev/null || grep -q "'ws://' *+ *window.location" "$jsfile" 2>/dev/null; then
-        echo "   Patching location pattern: $jsfile"
-        sed -i "s|'ws://' *+ *location|((window.location.protocol === 'https:' ? 'wss://' : 'ws://') + location|g" "$jsfile"
-        sed -i "s|'ws://' *+ *window.location|((window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location|g" "$jsfile"
-    fi
-done
+# Verify the patch
+if grep -q "WSS_OVERRIDE_PATCHED" "$BASE_HTML"; then
+    echo "✅ Patch verified successfully"
+else
+    echo "❌ Patch verification failed"
+fi
 
-echo "✅ WebSocket patching complete"
-
+echo "✅ WSS patching complete"
