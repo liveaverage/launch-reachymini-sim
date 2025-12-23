@@ -74,6 +74,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ============================================================================
 # Python 3.12 via deadsnakes PPA
+# Note: distutils was removed in Python 3.12, not needed
 # ============================================================================
 RUN add-apt-repository ppa:deadsnakes/ppa -y \
     && apt-get update \
@@ -81,7 +82,6 @@ RUN add-apt-repository ppa:deadsnakes/ppa -y \
         python${PYTHON_VERSION} \
         python${PYTHON_VERSION}-venv \
         python${PYTHON_VERSION}-dev \
-        python${PYTHON_VERSION}-distutils \
     && rm -rf /var/lib/apt/lists/*
 
 # Set Python 3.12 as default
