@@ -84,6 +84,7 @@ echo "=============================================="
 
 # -----------------------------------------------------------------------------
 # Start Supervisor (manages all services)
+# Using pip-installed supervisor (Python 3.12 compatible)
 # -----------------------------------------------------------------------------
-exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+exec supervisord -n -c /etc/supervisor/conf.d/supervisord.conf
 

@@ -65,8 +65,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pulseaudio \
     libportaudio2 \
     portaudio19-dev \
-    # Supervisor for process management
-    supervisor \
     # Network utilities
     net-tools \
     procps \
@@ -90,6 +88,9 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTH
 
 # Install pip
 RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION}
+
+# Install supervisor via pip (apt version uses asynchat, removed in Python 3.12)
+RUN pip install --no-cache-dir supervisor
 
 # ============================================================================
 # VirtualGL (GPU-accelerated OpenGL)
@@ -140,7 +141,8 @@ RUN pip install --no-cache-dir \
 # Configuration Files
 # ============================================================================
 
-# Supervisor configuration
+# Supervisor configuration (create directory for pip-installed supervisor)
+RUN mkdir -p /etc/supervisor/conf.d /var/log/supervisor
 COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Entrypoint script
