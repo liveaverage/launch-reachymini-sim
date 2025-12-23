@@ -13,7 +13,7 @@ echo "=============================================="
 # Environment Setup
 # -----------------------------------------------------------------------------
 export DISPLAY=${DISPLAY:-:1}
-export RESOLUTION=${RESOLUTION:-1920x1080}
+export RESOLUTION=${RESOLUTION:-1024x768}
 export REACHY_SCENE=${REACHY_SCENE:-empty}
 export NOVNC_PORT=${NOVNC_PORT:-6080}
 export DASHBOARD_PORT=${DASHBOARD_PORT:-8000}
@@ -22,6 +22,14 @@ export JUPYTER_PORT=${JUPYTER_PORT:-8888}
 echo "📺 Display: ${DISPLAY}"
 echo "📐 Resolution: ${RESOLUTION}"
 echo "🎬 Scene: ${REACHY_SCENE}"
+echo ""
+
+# -----------------------------------------------------------------------------
+# Patch Dashboard JavaScript for WSS support (HTTPS compatibility)
+# -----------------------------------------------------------------------------
+if [ -f /patch-websocket.sh ]; then
+    /patch-websocket.sh
+fi
 echo ""
 
 # -----------------------------------------------------------------------------

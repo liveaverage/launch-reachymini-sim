@@ -21,7 +21,7 @@ ENV TZ=UTC
 ENV PYTHON_VERSION=3.12
 ENV DISPLAY=:1
 ENV VGL_DISPLAY=egl
-ENV RESOLUTION=1920x1080
+ENV RESOLUTION=1024x768
 
 # Application ports
 ENV NOVNC_PORT=6080
@@ -141,9 +141,10 @@ RUN pip install --no-cache-dir \
 RUN mkdir -p /etc/supervisor/conf.d /var/log/supervisor
 COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Entrypoint script
+# Entrypoint and helper scripts
 COPY scripts/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY scripts/patch-websocket.sh /patch-websocket.sh
+RUN chmod +x /entrypoint.sh /patch-websocket.sh
 
 # Openbox configuration for minimal window manager
 RUN mkdir -p /root/.config/openbox
