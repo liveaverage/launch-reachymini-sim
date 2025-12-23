@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 ################################################################################
 # Reachy Mini Simulation Container
-# - VirtualGL + TurboVNC + noVNC for GPU-accelerated remote desktop
+# - VirtualGL + Xvfb + x11vnc + noVNC for GPU-accelerated remote desktop
 # - reachy-mini SDK with MuJoCo simulation
 # - Jupyter Lab for interactive development
 # - Dashboard and conversation app support
@@ -54,6 +54,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dbus-x11 \
     # Window manager (lightweight)
     openbox \
+    # VNC server for Xvfb
+    x11vnc \
     # Mesa for EGL/OpenGL
     libgl1-mesa-glx \
     libgl1-mesa-dri \
@@ -101,17 +103,8 @@ RUN curl -fsSL -o /tmp/virtualgl.deb \
     && dpkg -i /tmp/virtualgl.deb || apt-get install -fy \
     && rm /tmp/virtualgl.deb
 
-# ============================================================================
-# TurboVNC (optimized VNC server for VirtualGL)
-# ============================================================================
-ARG TURBOVNC_VERSION=3.1.2
-RUN curl -fsSL -o /tmp/turbovnc.deb \
-    "https://github.com/TurboVNC/turbovnc/releases/download/${TURBOVNC_VERSION}/turbovnc_${TURBOVNC_VERSION}_amd64.deb" \
-    && dpkg -i /tmp/turbovnc.deb || apt-get install -fy \
-    && rm /tmp/turbovnc.deb
-
-# Add TurboVNC to PATH
-ENV PATH="/opt/TurboVNC/bin:${PATH}"
+# Add VirtualGL to PATH
+ENV PATH="/opt/VirtualGL/bin:${PATH}"
 
 # ============================================================================
 # noVNC (web-based VNC client)
@@ -148,11 +141,6 @@ COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # Entrypoint script
 COPY scripts/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
-
-# VNC password (default: "reachy" - override via VNC_PASSWORD env)
-RUN mkdir -p /root/.vnc \
-    && echo "reachy" | vncpasswd -f > /root/.vnc/passwd \
-    && chmod 600 /root/.vnc/passwd
 
 # Openbox configuration for minimal window manager
 RUN mkdir -p /root/.config/openbox
