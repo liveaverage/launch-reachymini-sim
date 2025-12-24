@@ -1,0 +1,16 @@
+# Caddy reverse proxy for Conversation App
+# Provides HTTPS with self-signed cert (required for browser microphone access)
+# Proxies to internal Gradio server on port 7861
+
+:7860 {
+    tls internal
+
+    reverse_proxy localhost:7861 {
+        # WebSocket support for Gradio
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
+

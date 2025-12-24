@@ -209,7 +209,7 @@ Python notebooks for<br/>SDK development
 | **TurboVNC** | Optimized VNC server for GPU apps |
 | **noVNC** | Web-based VNC client (websocket) |
 | **MuJoCo** | Physics simulation engine |
-| **Conversation App** | Voice assistant with Gradio web UI |
+| **Conversation App** | Voice assistant with Gradio web UI (via Caddy TLS proxy) |
 | **Supervisor** | Process manager for all services |
 
 ### Docker Container Configuration
@@ -323,7 +323,10 @@ The [Reachy Mini Conversation App](https://github.com/pollen-robotics/reachy_min
 ### Requirements
 
 - **OpenAI API Key**: Required for the conversation app to function
+- **HTTPS Access**: Browser microphone requires secure context - use `https://` not `http://`
 - **Browser Microphone**: Grant microphone access when prompted in the Gradio UI
+
+> ⚠️ **Self-Signed Certificate**: The container uses Caddy with a self-signed TLS certificate. Your browser will show a security warning - click **Advanced** → **Proceed anyway** to accept it.
 
 ### Quick Start
 
@@ -331,8 +334,11 @@ The [Reachy Mini Conversation App](https://github.com/pollen-robotics/reachy_min
 # Launch with OpenAI API key
 OPENAI_API_KEY=sk-your-key-here ./scripts/start_reachy.sh
 
-# Access the conversation app at:
-# http://localhost:7860
+# Access the conversation app at (note: HTTPS required for microphone):
+# https://localhost:7860
+#
+# For remote access:
+# https://<SERVER_IP>:7860
 ```
 
 ### How It Works

@@ -124,6 +124,12 @@ RUN mkdir -p /opt/noVNC \
 RUN pip install --no-cache-dir websockify==${WEBSOCKIFY_VERSION}
 
 # ============================================================================
+# Caddy (reverse proxy with automatic TLS for conversation app)
+# ============================================================================
+RUN curl -fsSL "https://caddyserver.com/api/download?os=linux&arch=amd64" -o /usr/local/bin/caddy \
+    && chmod +x /usr/local/bin/caddy
+
+# ============================================================================
 # Reachy Mini SDK with MuJoCo
 # ============================================================================
 RUN pip install --no-cache-dir \
@@ -148,6 +154,9 @@ RUN pip install --no-cache-dir \
 # Supervisor configuration (create directory for pip-installed supervisor)
 RUN mkdir -p /etc/supervisor/conf.d /var/log/supervisor
 COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Caddy configuration for TLS reverse proxy
+COPY config/Caddyfile /etc/caddy/Caddyfile
 
 # Entrypoint and helper scripts
 COPY scripts/entrypoint.sh /entrypoint.sh

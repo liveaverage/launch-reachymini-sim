@@ -74,22 +74,33 @@ echo ""
 # -----------------------------------------------------------------------------
 # Print Access Information
 # -----------------------------------------------------------------------------
-HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
+# Get public IP for remote access (fallback to internal IP)
+PUBLIC_IP=$(curl -s --connect-timeout 3 icanhazip.com 2>/dev/null || echo "")
+INTERNAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
 
+if [ -n "${PUBLIC_IP}" ]; then
+    HOST_IP="${PUBLIC_IP}"
+    echo "🌐 Public IP: ${PUBLIC_IP}"
+else
+    HOST_IP="${INTERNAL_IP}"
+    echo "🏠 Internal IP: ${INTERNAL_IP} (no public IP detected)"
+fi
+
+echo ""
 echo "=============================================="
 echo "🚀 Services Starting..."
 echo "=============================================="
 echo ""
 echo "📺 noVNC (3D Simulation): http://${HOST_IP}:${NOVNC_PORT}/vnc.html"
-echo "🗣️  Conversation App:     http://${HOST_IP}:${CONVERSATION_PORT}"
+echo "🗣️  Conversation App:     https://${HOST_IP}:${CONVERSATION_PORT}  ← HTTPS required!"
 echo "📊 Dashboard:             http://${HOST_IP}:${DASHBOARD_PORT}"
 echo "📓 Jupyter Lab:           http://${HOST_IP}:${JUPYTER_PORT}"
 echo ""
 echo "💡 Tips:"
-echo "   - Wait ~20 seconds for all services to fully load"
+echo "   - Wait ~30 seconds for all services to fully load"
+echo "   - Conversation app uses self-signed cert (accept browser warning)"
 echo "   - Conversation app requires OPENAI_API_KEY to function"
 echo "   - Use Full Color mode in noVNC settings for best quality"
-echo "   - Resize browser to match ${RESOLUTION} for best experience"
 echo ""
 echo "=============================================="
 
