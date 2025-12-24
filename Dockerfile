@@ -158,6 +158,12 @@ COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # Caddy configuration for TLS reverse proxy
 COPY config/Caddyfile /etc/caddy/Caddyfile
 
+# Generate self-signed certificate for Caddy
+RUN openssl req -x509 -newkey rsa:2048 -nodes \
+    -keyout /etc/caddy/key.pem -out /etc/caddy/cert.pem \
+    -days 365 -subj '/CN=reachy-mini' \
+    && chmod 644 /etc/caddy/cert.pem /etc/caddy/key.pem
+
 # Entrypoint and helper scripts
 COPY scripts/entrypoint.sh /entrypoint.sh
 COPY scripts/patch-websocket.sh /patch-websocket.sh

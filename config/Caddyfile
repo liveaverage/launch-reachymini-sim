@@ -3,14 +3,8 @@
 # Proxies to internal Gradio server on port 7861
 
 :7860 {
-    tls internal
+    tls /etc/caddy/cert.pem /etc/caddy/key.pem
 
-    reverse_proxy localhost:7861 {
-        # WebSocket support for Gradio
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
-    }
+    reverse_proxy localhost:7861
 }
 
