@@ -49,6 +49,7 @@ DOCKER_CMD="docker run -d \
     --gpus all \
     --shm-size=2gb \
     -p 6080:6080 \
+    -p 7860:7860 \
     -p 8000:8000 \
     -p 8888:8888 \
     -e NVIDIA_DRIVER_CAPABILITIES=all \
@@ -89,11 +90,13 @@ if [ "$(docker ps -q -f name=${CONTAINER_NAME})" ]; then
     echo "=============================================="
     echo ""
     echo "📺 3D Simulation (noVNC): http://${HOST_IP}:6080/vnc.html"
+    echo "🗣️  Conversation App:     http://${HOST_IP}:7860"
     echo "📊 Dashboard:             http://${HOST_IP}:8000"
     echo "📓 Jupyter Lab:           http://${HOST_IP}:8888"
     echo ""
     echo "💡 Tips:"
-    echo "   - Wait ~15 seconds for MuJoCo simulation to fully load"
+    echo "   - Wait ~20 seconds for all services to fully load"
+    echo "   - Conversation app requires OPENAI_API_KEY to function"
     echo "   - View logs: docker logs -f ${CONTAINER_NAME}"
     echo "   - Stop: docker stop ${CONTAINER_NAME}"
     echo ""

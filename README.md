@@ -67,6 +67,9 @@ Access the full 3D MuJoCo simulation through your browser via TurboVNC + noVNC. 
 ### 📊 Dashboard
 Built-in Reachy Mini dashboard for robot status, controls, and real-time monitoring at port 8000.
 
+### 🗣️ Conversation App
+Voice assistant powered by OpenAI's realtime API. Talk to Reachy Mini through your browser's microphone via the Gradio web UI at port 7860.
+
 </td>
 <td width="50%">
 
@@ -117,6 +120,7 @@ After a few minutes, access your simulation:
 <table>
 <tr>
 <th>🖥️ 3D Simulator</th>
+<th>🗣️ Conversation App</th>
 <th>📊 Dashboard</th>
 <th>📓 Jupyter Lab</th>
 </tr>
@@ -126,6 +130,13 @@ After a few minutes, access your simulation:
 **http://localhost:6080/vnc.html**
 
 MuJoCo simulation via<br/>noVNC web interface
+
+</td>
+<td align="center">
+
+**http://localhost:7860**
+
+Voice assistant via<br/>browser microphone
 
 </td>
 <td align="center">
@@ -180,12 +191,12 @@ Python notebooks for<br/>SDK development
                 │   │  (Web VNC)   │  │     Lab      │   │
                 │   └──────────────┘  └──────────────┘   │
                 │                                         │
-                │   ┌──────────────┐                     │
-                │   │  Dashboard   │                     │
-                │   │  (Port 8000) │                     │
-                │   └──────────────┘                     │
+                │   ┌──────────────┐  ┌──────────────┐   │
+                │   │  Dashboard   │  │ Conversation │   │
+                │   │  (Port 8000) │  │ App (:7860)  │   │
+                │   └──────────────┘  └──────────────┘   │
                 │                                         │
-                │    :6080       :8000       :8888       │
+                │    :6080    :7860    :8000    :8888    │
                 └─────────────────────────────────────────┘
 ```
 
@@ -198,6 +209,7 @@ Python notebooks for<br/>SDK development
 | **TurboVNC** | Optimized VNC server for GPU apps |
 | **noVNC** | Web-based VNC client (websocket) |
 | **MuJoCo** | Physics simulation engine |
+| **Conversation App** | Voice assistant with Gradio web UI |
 | **Supervisor** | Process manager for all services |
 
 ### Docker Container Configuration
@@ -243,6 +255,7 @@ Default ports in `scripts/start_reachy.sh`:
 
 ```bash
 -p 6080:6080 \   # 🖥️  noVNC web interface
+-p 7860:7860 \   # 🗣️  Conversation App (Gradio)
 -p 8000:8000 \   # 📊 Dashboard
 -p 8888:8888     # 📓 Jupyter Lab
 ```
@@ -303,22 +316,42 @@ with ReachyMini() as mini:
 
 ---
 
-## 🤖 Running the Conversation App
+## 🤖 Conversation App
 
-The container supports running the [Reachy Mini Conversation App](https://huggingface.co/spaces/pollen-robotics/reachy_mini_conversation_app):
+The [Reachy Mini Conversation App](https://github.com/pollen-robotics/reachy_mini_conversation_app) is bundled and starts automatically. It provides a voice assistant powered by OpenAI's realtime API.
+
+### Requirements
+
+- **OpenAI API Key**: Required for the conversation app to function
+- **Browser Microphone**: Grant microphone access when prompted in the Gradio UI
+
+### Quick Start
 
 ```bash
 # Launch with OpenAI API key
 OPENAI_API_KEY=sk-your-key-here ./scripts/start_reachy.sh
 
-# Then in Jupyter Lab terminal or via docker exec:
-docker exec -it reachy_mini_sim bash
-cd /workspace
-# Clone and run conversation app
-git clone https://huggingface.co/spaces/pollen-robotics/reachy_mini_conversation_app
-cd reachy_mini_conversation_app
-pip install -r requirements.txt
-python app.py
+# Access the conversation app at:
+# http://localhost:7860
+```
+
+### How It Works
+
+1. Open the Gradio web UI at port 7860
+2. Allow browser microphone access when prompted
+3. Speak to Reachy Mini through your browser
+4. Watch the robot respond in the noVNC simulation view
+
+> **Note**: The conversation app runs in audio-only mode (`--no-camera`) since remote simulation doesn't have access to a physical camera. Future versions may support client webcam passthrough.
+
+### Checking Logs
+
+```bash
+# View conversation app logs
+docker exec -it reachy_mini_sim cat /var/log/supervisor/conversation-app.log
+
+# View error logs
+docker exec -it reachy_mini_sim cat /var/log/supervisor/conversation-app_err.log
 ```
 
 ---
@@ -427,12 +460,14 @@ For faster connections:
 hostname -I | awk '{print $1}'
 
 # Access remotely:
-# http://<HOST_IP>:6080/vnc.html
-# http://<HOST_IP>:8000
-# http://<HOST_IP>:8888
+# http://<HOST_IP>:6080/vnc.html  (noVNC)
+# http://<HOST_IP>:7860           (Conversation App)
+# http://<HOST_IP>:8000           (Dashboard)
+# http://<HOST_IP>:8888           (Jupyter Lab)
 
 # Open firewall ports
 sudo ufw allow 6080/tcp
+sudo ufw allow 7860/tcp
 sudo ufw allow 8000/tcp
 sudo ufw allow 8888/tcp
 ```
@@ -470,6 +505,7 @@ sudo ufw allow 8888/tcp
 - Python 3.12 + reachy-mini SDK
 - MuJoCo physics engine
 - VirtualGL + TurboVNC + noVNC
+- Conversation App (Gradio-based voice assistant)
 - Jupyter Lab
 
 ---

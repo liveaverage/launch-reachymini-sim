@@ -16,6 +16,7 @@ export DISPLAY=${DISPLAY:-:1}
 export RESOLUTION=${RESOLUTION:-1024x768}
 export REACHY_SCENE=${REACHY_SCENE:-empty}
 export NOVNC_PORT=${NOVNC_PORT:-6080}
+export CONVERSATION_PORT=${CONVERSATION_PORT:-7860}
 export DASHBOARD_PORT=${DASHBOARD_PORT:-8000}
 export JUPYTER_PORT=${JUPYTER_PORT:-8888}
 
@@ -80,11 +81,13 @@ echo "🚀 Services Starting..."
 echo "=============================================="
 echo ""
 echo "📺 noVNC (3D Simulation): http://${HOST_IP}:${NOVNC_PORT}/vnc.html"
+echo "🗣️  Conversation App:     http://${HOST_IP}:${CONVERSATION_PORT}"
 echo "📊 Dashboard:             http://${HOST_IP}:${DASHBOARD_PORT}"
 echo "📓 Jupyter Lab:           http://${HOST_IP}:${JUPYTER_PORT}"
 echo ""
 echo "💡 Tips:"
-echo "   - Wait ~15 seconds for MuJoCo simulation to fully load"
+echo "   - Wait ~20 seconds for all services to fully load"
+echo "   - Conversation app requires OPENAI_API_KEY to function"
 echo "   - Use Full Color mode in noVNC settings for best quality"
 echo "   - Resize browser to match ${RESOLUTION} for best experience"
 echo ""

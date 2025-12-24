@@ -27,6 +27,7 @@ ENV RESOLUTION=1024x768
 ENV NOVNC_PORT=6080
 ENV DASHBOARD_PORT=8000
 ENV JUPYTER_PORT=8888
+ENV CONVERSATION_PORT=7860
 
 # Reachy Mini configuration (overridable at runtime)
 ENV REACHY_SCENE=empty
@@ -134,6 +135,13 @@ RUN pip install --no-cache-dir \
     numpy
 
 # ============================================================================
+# Reachy Mini Conversation App (Gradio-based voice assistant)
+# https://github.com/pollen-robotics/reachy_mini_conversation_app
+# ============================================================================
+RUN pip install --no-cache-dir \
+    "reachy-mini-conversation-app @ git+https://github.com/pollen-robotics/reachy_mini_conversation_app.git"
+
+# ============================================================================
 # Configuration Files
 # ============================================================================
 
@@ -166,7 +174,7 @@ RUN git clone --depth 1 https://github.com/pollen-robotics/reachy_mini.git /opt/
 # ============================================================================
 # Ports
 # ============================================================================
-EXPOSE 6080 8000 8888
+EXPOSE 6080 8000 7860 8888
 
 # ============================================================================
 # Entrypoint
