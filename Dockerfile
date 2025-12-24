@@ -152,7 +152,8 @@ COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # Entrypoint and helper scripts
 COPY scripts/entrypoint.sh /entrypoint.sh
 COPY scripts/patch-websocket.sh /patch-websocket.sh
-RUN chmod +x /entrypoint.sh /patch-websocket.sh
+COPY scripts/conversation-app-wrapper.py /conversation-app-wrapper.py
+RUN chmod +x /entrypoint.sh /patch-websocket.sh /conversation-app-wrapper.py
 
 # Openbox configuration for minimal window manager
 RUN mkdir -p /root/.config/openbox
