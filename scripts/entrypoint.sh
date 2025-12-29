@@ -19,6 +19,7 @@ export NOVNC_PORT=${NOVNC_PORT:-6080}
 export CONVERSATION_PORT=${CONVERSATION_PORT:-7860}
 export DASHBOARD_PORT=${DASHBOARD_PORT:-8000}
 export JUPYTER_PORT=${JUPYTER_PORT:-8888}
+export PYTHONUNBUFFERED=1
 
 echo "📺 Display: ${DISPLAY}"
 echo "📐 Resolution: ${RESOLUTION}"
@@ -81,9 +82,14 @@ INTERNAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
 if [ -n "${PUBLIC_IP}" ]; then
     HOST_IP="${PUBLIC_IP}"
     echo "🌐 Public IP: ${PUBLIC_IP}"
+    # Export for WebRTC libraries to advertise correct external IP
+    export EXTERNAL_IP="${PUBLIC_IP}"
+    export RTC_EXTERNAL_IP="${PUBLIC_IP}"
 else
     HOST_IP="${INTERNAL_IP}"
     echo "🏠 Internal IP: ${INTERNAL_IP} (no public IP detected)"
+    export EXTERNAL_IP="${INTERNAL_IP}"
+    export RTC_EXTERNAL_IP="${INTERNAL_IP}"
 fi
 
 echo ""

@@ -1,16 +1,15 @@
 # syntax=docker/dockerfile:1
 ################################################################################
-# Reachy Mini Simulation Container
-# - VirtualGL + Xvfb + x11vnc + noVNC for GPU-accelerated remote desktop
-# - reachy-mini SDK with MuJoCo simulation
-# - Jupyter Lab for interactive development
-# - Dashboard and conversation app support
+# Reachy Mini Simulation + Pipecat Bot Container
+# - All features from original sim container
+# - Pipecat WebRTC bot with ElevenLabs STT/TTS
+# - NeMo Agent Toolkit for multimodal routing
 ################################################################################
 
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
 
 LABEL org.opencontainers.image.source="https://github.com/liveaverage/brev-launch-reachymini-sim"
-LABEL org.opencontainers.image.description="Reachy Mini simulation with noVNC"
+LABEL org.opencontainers.image.description="Reachy Mini simulation with Pipecat WebRTC bot"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 
 # Prevent interactive prompts during package installation
@@ -28,11 +27,20 @@ ENV RESOLUTION=1024x768
 ENV NOVNC_PORT=6080
 ENV DASHBOARD_PORT=8000
 ENV JUPYTER_PORT=8888
-ENV CONVERSATION_PORT=7860
+# Pipecat WebRTC ports (replaces conversation app)
+ENV PIPECAT_PORT=7880
+ENV NAT_PORT=8001
 
-# Reachy Mini configuration (overridable at runtime)
+# WebRTC UDP port range for media
+ENV RTC_PORT_RANGE_MIN=10000
+ENV RTC_PORT_RANGE_MAX=20000
+
+# Reachy Mini configuration
 ENV REACHY_SCENE=empty
-ENV OPENAI_API_KEY=""
+
+# API Keys (set at runtime)
+ENV NVIDIA_API_KEY=""
+ENV ELEVENLABS_API_KEY=""
 
 # ============================================================================
 # System Dependencies
@@ -48,6 +56,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Build essentials for Python packages
     build-essential \
     pkg-config \
+    cmake \
     # X11 and virtual framebuffer
     xvfb \
     x11-utils \
@@ -65,18 +74,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgles2-mesa \
     libglvnd0 \
     libglvnd-dev \
-    # Audio (for conversation app)
+    # Audio (for Pipecat TTS/STT)
     pulseaudio \
     libportaudio2 \
     portaudio19-dev \
+    libsndfile1 \
+    ffmpeg \
     # Network utilities
     net-tools \
     procps \
+    # Required for aiortc (WebRTC)
+    libavcodec-dev \
+    libavformat-dev \
+    libavutil-dev \
+    libswresample-dev \
+    libopus-dev \
+    libvpx-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # ============================================================================
 # Python 3.12 via deadsnakes PPA
-# Note: distutils was removed in Python 3.12, not needed
 # ============================================================================
 RUN add-apt-repository ppa:deadsnakes/ppa -y \
     && apt-get update \
@@ -93,11 +110,11 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTH
 # Install pip
 RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION}
 
-# Install supervisor via pip (apt version uses asynchat, removed in Python 3.12)
+# Install supervisor via pip
 RUN pip install --no-cache-dir supervisor
 
 # ============================================================================
-# VirtualGL (GPU-accelerated OpenGL) - Optional, for enhanced performance
+# VirtualGL (GPU-accelerated OpenGL) - Optional
 # ============================================================================
 ARG VIRTUALGL_VERSION=3.1.1
 RUN curl -fsSL -o /tmp/virtualgl.deb \
@@ -108,7 +125,6 @@ RUN curl -fsSL -o /tmp/virtualgl.deb \
     && rm -rf /var/lib/apt/lists/* \
     || echo "VirtualGL installation failed - continuing without it"
 
-# Add VirtualGL to PATH if installed
 ENV PATH="/opt/VirtualGL/bin:${PATH}"
 
 # ============================================================================
@@ -125,65 +141,93 @@ RUN mkdir -p /opt/noVNC \
 RUN pip install --no-cache-dir websockify==${WEBSOCKIFY_VERSION}
 
 # ============================================================================
-# Caddy (reverse proxy with automatic TLS for conversation app)
+# Caddy (reverse proxy with TLS for WebRTC signaling)
 # ============================================================================
 RUN curl -fsSL "https://caddyserver.com/api/download?os=linux&arch=amd64" -o /usr/local/bin/caddy \
     && chmod +x /usr/local/bin/caddy
 
 # ============================================================================
-# Reachy Mini SDK with MuJoCo
+# Reachy Mini SDK with MuJoCo + Dances
 # ============================================================================
 RUN pip install --no-cache-dir \
-    "reachy-mini[mujoco]" \
+    "reachy-mini[mujoco]>=1.2.4" \
+    "reachy-mini-dances-library>=0.2.1" \
     jupyterlab \
     ipywidgets \
     matplotlib \
     opencv-python-headless \
-    numpy
+    numpy \
+    Pillow
 
 # ============================================================================
-# Reachy Mini Conversation App (Gradio-based voice assistant)
-# https://github.com/pollen-robotics/reachy_mini_conversation_app
+# Pipecat AI Framework with WebRTC transport
 # ============================================================================
 RUN pip install --no-cache-dir \
-    "reachy-mini-conversation-app @ git+https://github.com/pollen-robotics/reachy_mini_conversation_app.git"
+    "pipecat-ai[daily,local-smart-turn-v3]>=0.0.98" \
+    "pipecat-ai-small-webrtc-prebuilt>=2.0.0" \
+    "aiortc>=1.14.0" \
+    "onnxruntime>=1.23.2" \
+    "transformers>=4.57.3" \
+    python-dotenv \
+    aiohttp \
+    loguru
+
+# ============================================================================
+# NeMo Agent Toolkit
+# ============================================================================
+RUN pip install --no-cache-dir \
+    "nvidia-nat[langchain]>=1.3.1"
 
 # ============================================================================
 # Configuration Files
 # ============================================================================
 
-# Supervisor configuration (create directory for pip-installed supervisor)
-RUN mkdir -p /etc/supervisor/conf.d /var/log/supervisor
-COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# Create directories
+RUN mkdir -p /etc/supervisor/conf.d /var/log/supervisor /etc/caddy
 
-# Caddy configuration for TLS reverse proxy
-COPY config/Caddyfile /etc/caddy/Caddyfile
+# Supervisor configuration
+COPY config/supervisord-pipecat.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Generate self-signed certificate for Caddy
+# Caddy configuration for TLS (WebRTC requires HTTPS)
+COPY config/Caddyfile.pipecat /etc/caddy/Caddyfile
+
+# Generate self-signed certificate
 RUN openssl req -x509 -newkey rsa:2048 -nodes \
     -keyout /etc/caddy/key.pem -out /etc/caddy/cert.pem \
     -days 999 -subj '/CN=reachy-mini' \
     && chmod 644 /etc/caddy/cert.pem /etc/caddy/key.pem
 
 # Entrypoint and helper scripts
-COPY scripts/entrypoint.sh /entrypoint.sh
+COPY scripts/entrypoint-pipecat.sh /entrypoint.sh
 COPY scripts/patch-websocket.sh /patch-websocket.sh
-COPY scripts/conversation-app-wrapper.py /conversation-app-wrapper.py
-RUN chmod +x /entrypoint.sh /patch-websocket.sh /conversation-app-wrapper.py
+RUN chmod +x /entrypoint.sh /patch-websocket.sh
 
-# Openbox configuration for minimal window manager
+# Openbox configuration
 RUN mkdir -p /root/.config/openbox
 COPY config/openbox-rc.xml /root/.config/openbox/rc.xml
 
-# Jupyter configuration (no token for demo ease)
+# Jupyter configuration
 RUN mkdir -p /root/.jupyter
 COPY config/jupyter_config.py /root/.jupyter/jupyter_lab_config.py
+
+# ============================================================================
+# Pipecat Bot Application
+# ============================================================================
+RUN mkdir -p /app/bot /app/nat
+
+# Copy bot application
+COPY bot/ /app/bot/
+COPY nat/ /app/nat/
+
+# Install NAT custom components
+WORKDIR /app/nat
+RUN pip install --no-cache-dir -e .
 
 # Create workspace for user notebooks/code
 RUN mkdir -p /workspace
 WORKDIR /workspace
 
-# Clone example notebooks from reachy_mini repo
+# Clone example notebooks
 RUN git clone --depth 1 https://github.com/pollen-robotics/reachy_mini.git /opt/reachy_mini_repo \
     && cp -r /opt/reachy_mini_repo/examples /workspace/examples \
     && rm -rf /opt/reachy_mini_repo
@@ -191,9 +235,11 @@ RUN git clone --depth 1 https://github.com/pollen-robotics/reachy_mini.git /opt/
 # ============================================================================
 # Ports
 # ============================================================================
-# TCP: 6080 (noVNC), 7860 (Conversation App), 8000 (Dashboard), 8888 (Jupyter)
-# UDP: 49152-49252 (WebRTC media for conversation app)
-EXPOSE 6080 8000 7860 8888 49152-49252/udp
+# TCP: 6080 (noVNC), 7880 (Pipecat WebRTC signaling), 8000 (Dashboard), 
+#      8001 (NAT), 8888 (Jupyter)
+# UDP: 10000-20000 (WebRTC RTP/RTCP media)
+EXPOSE 6080 7880 8000 8001 8888
+EXPOSE 10000-20000/udp
 
 # ============================================================================
 # Entrypoint

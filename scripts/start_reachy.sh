@@ -42,16 +42,15 @@ docker pull ${IMAGE_NAME}
 
 # -----------------------------------------------------------------------------
 # Build docker run command
+# Uses --network=host for WebRTC compatibility (avoids NAT traversal issues)
+# This exposes all container ports directly on host network
 # -----------------------------------------------------------------------------
 DOCKER_CMD="docker run -d \
     --name ${CONTAINER_NAME} \
     --restart unless-stopped \
     --gpus all \
     --shm-size=2gb \
-    -p 6080:6080 \
-    -p 7860:7860 \
-    -p 8000:8000 \
-    -p 8888:8888 \
+    --network=host \
     -e NVIDIA_DRIVER_CAPABILITIES=all \
     -e NVIDIA_VISIBLE_DEVICES=all \
     -e REACHY_SCENE=${REACHY_SCENE} \
@@ -82,7 +81,9 @@ sleep 5
 
 # Check if container is running
 if [ "$(docker ps -q -f name=${CONTAINER_NAME})" ]; then
-    HOST_IP=$(hostname -I | awk '{print $1}')
+    # Get public IP for remote access
+    PUBLIC_IP=$(curl -s --connect-timeout 3 icanhazip.com 2>/dev/null || echo "")
+    HOST_IP=${PUBLIC_IP:-$(hostname -I | awk '{print $1}')}
     
     echo ""
     echo "=============================================="
@@ -90,15 +91,19 @@ if [ "$(docker ps -q -f name=${CONTAINER_NAME})" ]; then
     echo "=============================================="
     echo ""
     echo "📺 3D Simulation (noVNC): http://${HOST_IP}:6080/vnc.html"
-    echo "🗣️  Conversation App:     http://${HOST_IP}:7860"
+    echo "🗣️  Conversation App:     https://${HOST_IP}:7860  ← HTTPS required!"
     echo "📊 Dashboard:             http://${HOST_IP}:8000"
     echo "📓 Jupyter Lab:           http://${HOST_IP}:8888"
     echo ""
     echo "💡 Tips:"
-    echo "   - Wait ~20 seconds for all services to fully load"
+    echo "   - Wait ~30 seconds for all services to fully load"
+    echo "   - Conversation app uses self-signed cert (accept browser warning)"
     echo "   - Conversation app requires OPENAI_API_KEY to function"
     echo "   - View logs: docker logs -f ${CONTAINER_NAME}"
+    echo "   - Debug logs: docker exec ${CONTAINER_NAME} tail -f /var/log/supervisor/conversation-app*.log"
     echo "   - Stop: docker stop ${CONTAINER_NAME}"
+    echo ""
+    echo "⚠️  Using --network=host: all ports exposed on host network"
     echo ""
     echo "=============================================="
 else

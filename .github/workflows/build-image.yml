@@ -1,10 +1,14 @@
 # =============================================================================
 # Reachy Mini Simulation - Docker Image Build & Push
 # =============================================================================
+# Builds two image variants:
+#   - pipecat (default): Full Pipecat + NAT stack with WebRTC
+#   - standard: Original Gradio conversation app
+#
 # Triggers:
 #   - Push to main/develop branches
 #   - Pull requests to main
-#   - Manual dispatch
+#   - Manual dispatch (with variant selection)
 #   - Weekly rebuild (Sundays at 00:00 UTC)
 # =============================================================================
 
@@ -17,14 +21,26 @@ on:
       - develop
     paths:
       - 'Dockerfile'
+      - 'Dockerfile.pipecat'
       - 'config/**'
-      - 'scripts/entrypoint.sh'
+      - 'scripts/**'
+      - 'bot/**'
+      - 'nat/**'
       - '.github/workflows/build-image.yml'
   pull_request:
     branches:
       - main
   workflow_dispatch:
     inputs:
+      variant:
+        description: 'Image variant to build'
+        required: true
+        default: 'pipecat'
+        type: choice
+        options:
+          - pipecat
+          - standard
+          - both
       tag:
         description: 'Image tag (e.g., v1.0.0)'
         required: false
@@ -35,25 +51,24 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/reachy-mini-sim
+  OWNER: ${{ github.repository_owner }}
 
 jobs:
-  build:
+  # =========================================================================
+  # Build Pipecat Image (Default)
+  # =========================================================================
+  build-pipecat:
     runs-on: ubuntu-latest
+    # Build pipecat unless explicitly set to 'standard' only
+    if: ${{ github.event.inputs.variant != 'standard' }}
     permissions:
       contents: read
       packages: write
 
     steps:
-      # -----------------------------------------------------------------------
-      # Checkout
-      # -----------------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # -----------------------------------------------------------------------
-      # Free up disk space (GitHub runners have limited space)
-      # -----------------------------------------------------------------------
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet
@@ -62,15 +77,9 @@ jobs:
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           df -h
 
-      # -----------------------------------------------------------------------
-      # Set up Docker Buildx (for multi-platform builds and caching)
-      # -----------------------------------------------------------------------
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # -----------------------------------------------------------------------
-      # Log in to GitHub Container Registry
-      # -----------------------------------------------------------------------
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
@@ -79,30 +88,94 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # -----------------------------------------------------------------------
-      # Extract metadata for Docker image tags
-      # -----------------------------------------------------------------------
-      - name: Extract metadata
+      - name: Extract metadata (Pipecat)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.OWNER }}/reachy-mini-pipecat
           tags: |
-            # Set latest tag for main branch
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
-            # Set develop tag for develop branch
             type=raw,value=develop,enable=${{ github.ref == format('refs/heads/{0}', 'develop') }}
-            # Use manual tag if provided via workflow_dispatch
             type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != 'latest' }}
-            # SHA-based tag for traceability
             type=sha,prefix=sha-
-            # Date-based tag
             type=raw,value={{date 'YYYYMMDD'}}
 
-      # -----------------------------------------------------------------------
-      # Build and Push Docker Image
-      # -----------------------------------------------------------------------
-      - name: Build and push Docker image
+      - name: Build and push Pipecat image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.pipecat
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=pipecat
+          cache-to: type=gha,mode=max,scope=pipecat
+          build-args: |
+            VIRTUALGL_VERSION=3.1.1
+            NOVNC_VERSION=1.4.0
+            WEBSOCKIFY_VERSION=0.11.0
+
+      - name: Output Pipecat image digest
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "## 🐳 Pipecat Docker Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** \`${{ env.REGISTRY }}/${{ env.OWNER }}/reachy-mini-pipecat\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Features:** Pipecat WebRTC + NeMo Agent Toolkit + ElevenLabs" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  # =========================================================================
+  # Build Standard Image (Legacy/Simple)
+  # =========================================================================
+  build-standard:
+    runs-on: ubuntu-latest
+    # Build standard only when explicitly requested via workflow_dispatch
+    if: ${{ github.event.inputs.variant == 'standard' || github.event.inputs.variant == 'both' }}
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          df -h
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (Standard)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.OWNER }}/reachy-mini-sim
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+            type=raw,value=develop,enable=${{ github.ref == format('refs/heads/{0}', 'develop') }}
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != 'latest' }}
+            type=sha,prefix=sha-
+            type=raw,value={{date 'YYYYMMDD'}}
+
+      - name: Build and push Standard image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -110,26 +183,23 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          # Build arguments for version pinning
+          cache-from: type=gha,scope=standard
+          cache-to: type=gha,mode=max,scope=standard
           build-args: |
             VIRTUALGL_VERSION=3.1.1
             NOVNC_VERSION=1.4.0
             WEBSOCKIFY_VERSION=0.11.0
 
-      # -----------------------------------------------------------------------
-      # Output image digest
-      # -----------------------------------------------------------------------
-      - name: Output image digest
+      - name: Output Standard image digest
         if: github.event_name != 'pull_request'
         run: |
-          echo "## 🐳 Docker Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "## 🐳 Standard Docker Image Published" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Registry:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** \`${{ env.REGISTRY }}/${{ env.OWNER }}/reachy-mini-sim\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Features:** Gradio Conversation App + OpenAI Realtime" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-

@@ -1,0 +1,51 @@
+# Caddy configuration for Pipecat WebRTC with TLS
+# Browser microphone/camera access requires HTTPS (secure context)
+
+# Pipecat WebRTC signaling - HTTPS on 7860, proxy to internal 7880
+:7860 {
+    tls /etc/caddy/cert.pem /etc/caddy/key.pem
+
+    # WebSocket upgrade for WebRTC signaling
+    @websocket {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+
+    reverse_proxy @websocket localhost:7880 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Regular HTTP requests
+    reverse_proxy localhost:7880 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    log {
+        output file /var/log/caddy/pipecat.log
+        level INFO
+    }
+}
+
+# NAT API - HTTPS on 8002, proxy to internal 8001
+:8002 {
+    tls /etc/caddy/cert.pem /etc/caddy/key.pem
+
+    reverse_proxy localhost:8001 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    log {
+        output file /var/log/caddy/nat.log
+        level INFO
+    }
+}
+

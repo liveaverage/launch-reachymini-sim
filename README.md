@@ -55,6 +55,49 @@
 
 ---
 
+## 🎯 Two Variants Available
+
+| Variant | Image | Voice AI | Best For |
+|:--------|:------|:---------|:---------|
+| **Pipecat** (default) | `ghcr.io/.../reachy-mini-pipecat` | Pipecat + ElevenLabs + NAT | Production, WebRTC, custom agents |
+| **Standard** | `ghcr.io/.../reachy-mini-sim` | Gradio + OpenAI Realtime | Quick demos, single API key |
+
+### Choosing an Image
+
+```bash
+# Pipecat variant (default, recommended)
+export REACHY_IMAGE=ghcr.io/liveaverage/reachy-mini-pipecat:latest
+./scripts/start_pipecat.sh
+
+# Standard variant (simpler, OpenAI only)
+export REACHY_IMAGE=ghcr.io/liveaverage/reachy-mini-sim:latest
+./scripts/start_reachy.sh
+```
+
+### Building Images Locally
+
+```bash
+# Build Pipecat image (default)
+docker build -f Dockerfile.pipecat -t reachy-mini-pipecat:local .
+
+# Build Standard image
+docker build -f Dockerfile -t reachy-mini-sim:local .
+
+# Run local build
+REACHY_IMAGE=reachy-mini-pipecat:local ./scripts/start_pipecat.sh
+```
+
+### GitHub Actions Build
+
+The workflow automatically builds the **Pipecat image** on push to main/develop. To build a specific variant manually:
+
+1. Go to **Actions** → **Build and Push Docker Image**
+2. Click **Run workflow**
+3. Select variant: `pipecat`, `standard`, or `both`
+4. Optionally set a custom tag (e.g., `v1.0.0`)
+
+---
+
 ## ✨ Features
 
 <table>
@@ -362,6 +405,154 @@ docker exec -it reachy_mini_sim cat /var/log/supervisor/conversation-app_err.log
 
 ---
 
+## 🚀 Pipecat Variant (Advanced)
+
+The Pipecat variant replaces the Gradio conversation app with a full-featured WebRTC pipeline using:
+
+- **Pipecat AI Framework** - Real-time audio/video pipelines
+- **ElevenLabs** - High-quality STT/TTS
+- **NeMo Agent Toolkit (NAT)** - Intelligent routing between Nemotron models
+- **Vision Language Model** - Describe what the robot sees
+
+### Quick Start (Pipecat)
+
+```bash
+# Set required API keys
+export NVIDIA_API_KEY=nvapi-...    # Get from https://build.nvidia.com/
+export ELEVENLABS_API_KEY=sk_...   # Get from https://elevenlabs.io/
+
+# Launch with Pipecat
+./scripts/start_pipecat.sh
+```
+
+### Building the Pipecat Image
+
+```bash
+# Build locally
+docker build -f Dockerfile.pipecat -t reachy-mini-pipecat:latest .
+
+# Run with custom image
+REACHY_IMAGE=reachy-mini-pipecat:latest ./scripts/start_pipecat.sh
+```
+
+### WebRTC Port Requirements
+
+Pipecat WebRTC requires specific ports for signaling and media:
+
+| Port | Protocol | Purpose |
+|:-----|:---------|:--------|
+| **7860** | TCP | WebRTC signaling (HTTPS) |
+| **3478** | TCP/UDP | STUN/TURN (if using external) |
+| **10000-20000** | UDP | RTP/RTCP media streams |
+
+**For cloud/firewall deployments, ensure:**
+
+```bash
+# TCP ports (all required)
+sudo ufw allow 6080/tcp   # noVNC
+sudo ufw allow 7860/tcp   # Pipecat WebRTC (HTTPS)
+sudo ufw allow 8000/tcp   # Dashboard  
+sudo ufw allow 8001/tcp   # NAT API
+sudo ufw allow 8888/tcp   # Jupyter
+
+# UDP port range (required for voice/video)
+sudo ufw allow 10000:20000/udp
+```
+
+### 🌐 Remote Access Configuration
+
+For remote clients connecting over the internet, WebRTC requires proper NAT traversal:
+
+#### STUN Servers (Default, Free)
+
+STUN servers help discover public IP addresses. Enabled by default:
+
+```bash
+# Uses Google STUN servers by default
+export STUN_SERVERS="stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302"
+```
+
+#### TURN Servers (For Strict Firewalls)
+
+If clients are behind corporate firewalls that block UDP, you need a TURN relay server:
+
+```bash
+# Configure TURN server (required for corporate networks)
+export TURN_SERVER="turn:your-turn-server.com:3478"
+export TURN_USERNAME="your-username"
+export TURN_PASSWORD="your-password"
+
+./scripts/start_pipecat.sh
+```
+
+**Free/Low-cost TURN options:**
+- [Metered.ca](https://www.metered.ca/) - Free tier available
+- [Twilio Network Traversal](https://www.twilio.com/stun-turn) - Pay-as-you-go
+- [Coturn](https://github.com/coturn/coturn) - Self-hosted (free)
+
+#### Cloud Provider Firewall Rules
+
+**AWS Security Group:**
+```
+Inbound: TCP 6080, 7860, 8000, 8001, 8888 from 0.0.0.0/0
+Inbound: UDP 10000-20000 from 0.0.0.0/0
+```
+
+**GCP Firewall:**
+```bash
+gcloud compute firewall-rules create pipecat-webrtc \
+  --allow tcp:6080,tcp:7860,tcp:8000,tcp:8001,tcp:8888,udp:10000-20000 \
+  --direction INGRESS
+```
+
+**Azure NSG:**
+```
+Allow: TCP 6080, 7860, 8000, 8001, 8888 (Any source)
+Allow: UDP 10000-20000 (Any source)
+```
+
+#### Troubleshooting Remote Connections
+
+| Symptom | Cause | Solution |
+|:--------|:------|:---------|
+| Page loads, no audio/video | UDP ports blocked | Open UDP 10000-20000 on firewall |
+| "ICE connection failed" | NAT traversal issue | Configure TURN server |
+| Works locally, fails remotely | Wrong external IP | Check `RTC_EXTERNAL_IP` in logs |
+| Audio choppy/delayed | Network latency | Use server closer to users |
+
+### Pipecat Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Pipecat Container                           │
+│  ─────────────────────────────────────────────────────────────────  │
+│                                                                     │
+│   Browser ──WebRTC──▶ [Pipecat Bot] ──▶ [NAT Server]               │
+│              ↓              ↓                  ↓                    │
+│         Audio/Video    ElevenLabs        Nemotron LLMs             │
+│              ↓         STT/TTS          (text/vision/agent)        │
+│              ↓              ↓                  ↓                    │
+│         [Reachy Service] ◀─────────────────────┘                   │
+│              ↓                                                      │
+│         [MuJoCo Sim] ◀── Xvfb ◀── noVNC ──▶ Browser                │
+│                                                                     │
+│    :7860(HTTPS)    :8001     :6080    :8000    :8888               │
+│    Pipecat         NAT       noVNC   Dashboard  Jupyter            │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### NAT Model Routing
+
+The NeMo Agent Toolkit intelligently routes requests:
+
+| Route | Model | Use Case |
+|:------|:------|:---------|
+| `chit_chat` | Nemotron Nano 30B | Casual conversation |
+| `image_understanding` | Nemotron Nano VLM | "What do you see?" |
+| `other` | REACT Agent | Tool use (Wikipedia, etc.) |
+
+---
+
 ## 🔧 Container Management
 
 ```bash
@@ -484,6 +675,7 @@ sudo ufw allow 8888/tcp
 
 ## 📁 File Reference
 
+### Standard Variant
 | File | Purpose |
 |:-----|:--------|
 | `install.sh` | 🚀 Entry point—runs setup + launches simulation |
@@ -493,7 +685,29 @@ sudo ufw allow 8888/tcp
 | `scripts/entrypoint.sh` | 🎬 Container startup script |
 | `config/supervisord.conf` | ⚙️ Process manager configuration |
 | `config/jupyter_config.py` | 📓 Jupyter Lab settings |
-| `.github/workflows/build-image.yml` | 🏗️ CI/CD for image builds |
+
+### Pipecat Variant
+| File | Purpose |
+|:-----|:--------|
+| `Dockerfile.pipecat` | 🐳 Container with Pipecat + NAT |
+| `scripts/start_pipecat.sh` | 🤖 Launches Pipecat container |
+| `scripts/entrypoint-pipecat.sh` | 🎬 Pipecat container startup |
+| `config/supervisord-pipecat.conf` | ⚙️ Supervisor config for Pipecat |
+| `config/Caddyfile.pipecat` | 🔐 TLS proxy for WebRTC |
+| `bot/` | 🤖 Pipecat bot application |
+| `nat/` | 🧠 NeMo Agent Toolkit config |
+
+### CI/CD
+| File | Purpose |
+|:-----|:--------|
+| `.github/workflows/build-image.yml` | 🏗️ Builds Pipecat (default) or Standard images |
+
+### Image Selection
+
+| Environment Variable | Default | Description |
+|:---------------------|:--------|:------------|
+| `REACHY_IMAGE` | `ghcr.io/.../reachy-mini-pipecat:latest` | Docker image to pull/run |
+| `CONTAINER_NAME` | `reachy_pipecat` | Container name for management |
 
 ---
 
