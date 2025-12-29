@@ -38,22 +38,6 @@ echo "🎬 Scene: ${REACHY_SCENE}"
 echo ""
 
 # -----------------------------------------------------------------------------
-# VNC Password Setup
-# -----------------------------------------------------------------------------
-echo "🔐 Setting up VNC password..."
-mkdir -p /root/.vnc
-# Use vncpasswd to create password file (simpler than x11vnc -storepasswd)
-echo "reachy" | vncpasswd -f > /root/.vnc/passwd 2>/dev/null || \
-    echo "Warning: vncpasswd not found, VNC will run without password"
-chmod 600 /root/.vnc/passwd 2>/dev/null
-if [ -f /root/.vnc/passwd ]; then
-    echo "✅ VNC password configured"
-else
-    echo "⚠️  VNC password not set - continuing without password"
-fi
-echo ""
-
-# -----------------------------------------------------------------------------
 # Patch Dashboard JavaScript for WSS support (HTTPS compatibility)
 # -----------------------------------------------------------------------------
 if [ -f /patch-websocket.sh ]; then
