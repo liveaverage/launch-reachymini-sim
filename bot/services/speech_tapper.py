@@ -13,7 +13,7 @@ SR = 16_000
 FRAME_MS = 20
 HOP_MS = 10
 
-SWAY_MASTER = 1.5
+SWAY_MASTER = 4.5  # Tripled for much more visible head movement
 SENS_DB_OFFSET = +4.0
 VAD_DB_ON = -35.0
 VAD_DB_OFF = -45.0
@@ -22,17 +22,17 @@ VAD_RELEASE_MS = 250
 ENV_FOLLOW_GAIN = 0.65
 
 SWAY_F_PITCH = 2.2
-SWAY_A_PITCH_DEG = 4.5
+SWAY_A_PITCH_DEG = 13.5  # Tripled from 4.5 - nod up/down
 SWAY_F_YAW = 0.6
-SWAY_A_YAW_DEG = 7.5
+SWAY_A_YAW_DEG = 22.5  # Tripled from 7.5 - turn left/right  
 SWAY_F_ROLL = 1.3
-SWAY_A_ROLL_DEG = 2.25
+SWAY_A_ROLL_DEG = 6.75  # Tripled from 2.25 - tilt side to side
 SWAY_F_X = 0.35
-SWAY_A_X_MM = 4.5
+SWAY_A_X_MM = 13.5  # Tripled from 4.5 - side to side
 SWAY_F_Y = 0.45
-SWAY_A_Y_MM = 3.75
+SWAY_A_Y_MM = 11.25  # Tripled from 3.75 - forward/back
 SWAY_F_Z = 0.25
-SWAY_A_Z_MM = 2.25
+SWAY_A_Z_MM = 6.75  # Tripled from 2.25 - up/down
 
 SWAY_DB_LOW = -46.0
 SWAY_DB_HIGH = -18.0
