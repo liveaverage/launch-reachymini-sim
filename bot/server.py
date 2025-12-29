@@ -72,6 +72,8 @@ async def bot_runner(transport: SmallWebRTCTransport):
 
 async def start_server():
     """Start FastAPI server with WebRTC handler."""
+    from fastapi import Request
+    
     app = FastAPI()
     
     # Build ICE configuration
@@ -90,8 +92,21 @@ async def start_server():
         vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2)),
     )
     
-    # Mount routes
-    request_handler.mount_fastapi_routes(app, bot_runner, params)
+    # Manually create routes (no mount_fastapi_routes in 0.0.98)
+    @app.post("/start")
+    async def start(request: Request):
+        """Start a new WebRTC session."""
+        return await request_handler.handle_web_request(request, bot_runner, params)
+    
+    @app.post("/sessions/{pc_id}/api/offer")
+    async def offer(pc_id: str, request: Request):
+        """Handle WebRTC offer."""
+        return await request_handler.handle_web_request(request, bot_runner, params)
+    
+    @app.post("/sessions/{pc_id}/api/patch")
+    async def patch(pc_id: str, request: Request):
+        """Handle ICE candidate patch."""
+        return await request_handler.handle_patch_request(request)
     
     # Serve static client
     client_dir = Path(__file__).parent / "client"
