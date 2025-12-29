@@ -38,6 +38,16 @@ echo "🎬 Scene: ${REACHY_SCENE}"
 echo ""
 
 # -----------------------------------------------------------------------------
+# VNC Password Setup
+# -----------------------------------------------------------------------------
+echo "🔐 Setting up VNC password..."
+mkdir -p /root/.vnc
+echo "reachy" | x11vnc -storepasswd /root/.vnc/passwd
+chmod 600 /root/.vnc/passwd
+echo "✅ VNC password configured"
+echo ""
+
+# -----------------------------------------------------------------------------
 # Patch Dashboard JavaScript for WSS support (HTTPS compatibility)
 # -----------------------------------------------------------------------------
 if [ -f /patch-websocket.sh ]; then
