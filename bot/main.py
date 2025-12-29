@@ -197,37 +197,7 @@ Be helpful, curious, and express your robot personality!""",
 
 async def bot(runner_args: RunnerArguments):
     """Main bot entry point compatible with Pipecat Cloud."""
-    from pipecat.runner.types import SmallWebRTCRunnerArguments
-    from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
-    from pipecat.transports.smallwebrtc.connection import SmallWebRTCConnection
-    from aiortc.rtcconfiguration import RTCIceServer
-    
-    # Check if this is a WebRTC connection
-    if isinstance(runner_args, SmallWebRTCRunnerArguments):
-        logger.info("Creating SmallWebRTC transport with ICE servers")
-        
-        # Build ICE servers for aiortc
-        ice_server_configs = build_ice_servers()
-        logger.info(f"ICE server configs: {ice_server_configs}")
-        
-        # Convert to aiortc RTCIceServer objects
-        ice_servers = [RTCIceServer(urls=cfg["urls"]) for cfg in ice_server_configs]
-        
-        # Create connection with ICE servers
-        connection = SmallWebRTCConnection(ice_servers=ice_servers)
-        
-        # Create transport with the configured connection
-        transport = SmallWebRTCTransport(
-            webrtc_connection=connection,
-            params=get_webrtc_params(),
-        )
-        
-        # Set the connection on runner_args so the runner can use it
-        runner_args.webrtc_connection = connection
-    else:
-        # Fall back to standard transport creation for other types
-        transport = await create_transport(runner_args, transport_params)
-    
+    transport = await create_transport(runner_args, transport_params)
     await run_bot(transport, runner_args)
 
 
