@@ -111,6 +111,15 @@ transport_params = {
 async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     logger.info("Starting Pipecat bot with NAT backend")
 
+    # Get Reachy service singleton and ensure fresh state
+    from services.reachy_service import ReachyService
+    reachy_service = ReachyService.get_instance()
+    
+    # Reset wobbler state for new session
+    if reachy_service.wobbler:
+        reachy_service.wobbler.reset()
+        logger.info("Reset Reachy wobbler for new session")
+
     async with aiohttp.ClientSession() as session:
 
         stt = ElevenLabsSTTService(
@@ -188,6 +197,15 @@ Be helpful, curious, and express your robot personality!""",
         @transport.event_handler("on_client_disconnected")
         async def on_client_disconnected(transport, client):
             logger.info("Client disconnected")
+            
+            # Reset wobbler state for next session
+            if reachy_service.wobbler:
+                reachy_service.wobbler.reset()
+                logger.info("Reset Reachy wobbler on disconnect")
+            
+            # Set back to listening pose
+            reachy_service.set_listening_pose()
+            
             await task.cancel()
 
         runner = PipelineRunner(handle_sigint=runner_args.handle_sigint)
