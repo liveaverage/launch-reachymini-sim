@@ -39,9 +39,8 @@ ENV RTC_PORT_RANGE_MAX=20000
 # Reachy Mini configuration
 ENV REACHY_SCENE=empty
 
-# API Keys (set at runtime)
-ENV NVIDIA_API_KEY=""
-ENV ELEVENLABS_API_KEY=""
+# Note: API keys (NVIDIA_API_KEY, ELEVENLABS_API_KEY) must be set at runtime via -e flags
+# Do NOT set them here to avoid leaking secrets in image layers
 
 # ============================================================================
 # System Dependencies
@@ -149,25 +148,21 @@ RUN curl -fsSL "https://caddyserver.com/api/download?os=linux&arch=amd64" -o /us
     && chmod +x /usr/local/bin/caddy
 
 # ============================================================================
-# Python Dependencies - All installed via uv for speed
-# Single layer to maximize cache efficiency
+# Python Dependencies - Installed via uv for speed
+# Split into stages to handle numpy version conflict between pipecat and NAT
 # ============================================================================
+
+# Stage 1: Core dependencies and Pipecat (pins numpy<2.3 via numba)
 RUN uv pip install --system \
-    # Supervisor (process manager)
     supervisor \
-    # Websockify for noVNC
     websockify==${WEBSOCKIFY_VERSION} \
-    # Reachy Mini SDK with MuJoCo + Dances
     "reachy-mini[mujoco]>=1.2.4" \
     "reachy-mini-dances-library>=0.2.1" \
-    # Jupyter and data science
     jupyterlab \
     ipywidgets \
     matplotlib \
     opencv-python-headless \
-    numpy \
     Pillow \
-    # Pipecat AI Framework with WebRTC transport
     "pipecat-ai[daily,local-smart-turn-v3]>=0.0.98" \
     "pipecat-ai-small-webrtc-prebuilt>=2.0.0" \
     "aiortc>=1.14.0" \
@@ -175,9 +170,13 @@ RUN uv pip install --system \
     "transformers>=4.57.3" \
     python-dotenv \
     aiohttp \
-    loguru \
-    # NeMo Agent Toolkit
-    "nvidia-nat[langchain]>=1.3.1"
+    loguru
+
+# Stage 2: NeMo Agent Toolkit (use pre-release to get numpy compatibility fix)
+# The stable 1.3.1 requires numpy>=2.3 which conflicts with pipecat's numba
+# Pre-release versions have relaxed numpy constraints
+RUN uv pip install --system --prerelease=allow \
+    "nvidia-nat[langchain]"
 
 # ============================================================================
 # Configuration Files

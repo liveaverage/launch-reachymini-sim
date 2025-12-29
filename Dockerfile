@@ -1,10 +1,11 @@
 # syntax=docker/dockerfile:1
 ################################################################################
-# Reachy Mini Simulation Container
+# Reachy Mini Simulation Container (Standard)
 # - VirtualGL + Xvfb + x11vnc + noVNC for GPU-accelerated remote desktop
 # - reachy-mini SDK with MuJoCo simulation
 # - Jupyter Lab for interactive development
 # - Dashboard and conversation app support
+# - Uses uv for 10-100x faster Python package installation
 ################################################################################
 
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
@@ -76,7 +77,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ============================================================================
 # Python 3.12 via deadsnakes PPA
-# Note: distutils was removed in Python 3.12, not needed
 # ============================================================================
 RUN add-apt-repository ppa:deadsnakes/ppa -y \
     && apt-get update \
@@ -90,11 +90,14 @@ RUN add-apt-repository ppa:deadsnakes/ppa -y \
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
     && update-alternatives --install /usr/bin/python python /usr/bin/python${PYTHON_VERSION} 1
 
-# Install pip
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION}
+# ============================================================================
+# uv - Ultra-fast Python package installer (10-100x faster than pip)
+# ============================================================================
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:${PATH}"
 
-# Install supervisor via pip (apt version uses asynchat, removed in Python 3.12)
-RUN pip install --no-cache-dir supervisor
+# Verify uv installation and install pip for compatibility
+RUN uv --version && uv pip install --system pip
 
 # ============================================================================
 # VirtualGL (GPU-accelerated OpenGL) - Optional, for enhanced performance
@@ -122,8 +125,6 @@ RUN mkdir -p /opt/noVNC \
         | tar -xz -C /opt/noVNC --strip-components=1 \
     && ln -s /opt/noVNC/vnc.html /opt/noVNC/index.html
 
-RUN pip install --no-cache-dir websockify==${WEBSOCKIFY_VERSION}
-
 # ============================================================================
 # Caddy (reverse proxy with automatic TLS for conversation app)
 # ============================================================================
@@ -131,21 +132,22 @@ RUN curl -fsSL "https://caddyserver.com/api/download?os=linux&arch=amd64" -o /us
     && chmod +x /usr/local/bin/caddy
 
 # ============================================================================
-# Reachy Mini SDK with MuJoCo
+# Python Dependencies - All installed via uv for speed
 # ============================================================================
-RUN pip install --no-cache-dir \
+RUN uv pip install --system \
+    # Supervisor (process manager)
+    supervisor \
+    # Websockify for noVNC
+    websockify==${WEBSOCKIFY_VERSION} \
+    # Reachy Mini SDK with MuJoCo
     "reachy-mini[mujoco]" \
+    # Jupyter and data science
     jupyterlab \
     ipywidgets \
     matplotlib \
     opencv-python-headless \
-    numpy
-
-# ============================================================================
-# Reachy Mini Conversation App (Gradio-based voice assistant)
-# https://github.com/pollen-robotics/reachy_mini_conversation_app
-# ============================================================================
-RUN pip install --no-cache-dir \
+    numpy \
+    # Reachy Mini Conversation App (Gradio-based voice assistant)
     "reachy-mini-conversation-app @ git+https://github.com/pollen-robotics/reachy_mini_conversation_app.git"
 
 # ============================================================================
@@ -199,4 +201,3 @@ EXPOSE 6080 8000 7860 8888 49152-49252/udp
 # Entrypoint
 # ============================================================================
 ENTRYPOINT ["/entrypoint.sh"]
-
