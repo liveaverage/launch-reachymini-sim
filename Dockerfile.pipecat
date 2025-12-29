@@ -233,12 +233,16 @@ RUN git clone --depth 1 https://github.com/pollen-robotics/reachy_mini.git /opt/
     && rm -rf /opt/reachy_mini_repo
 
 # ============================================================================
-# Ports
+# Ports - ALL services via HTTPS (Caddy TLS proxy)
 # ============================================================================
-# TCP: 6080 (noVNC), 7880 (Pipecat WebRTC signaling), 8000 (Dashboard), 
-#      8001 (NAT), 8888 (Jupyter)
+# External HTTPS ports (Caddy) → Internal HTTP ports:
+#   6090 → 6080 (noVNC)
+#   7860 → 7880 (Pipecat WebRTC)
+#   8002 → 8001 (NAT API)
+#   8443 → 8000 (Dashboard)
+#   8889 → 8888 (Jupyter)
 # UDP: 10000-20000 (WebRTC RTP/RTCP media)
-EXPOSE 6080 7880 8000 8001 8888
+EXPOSE 6090 7860 8002 8443 8889
 EXPOSE 10000-20000/udp
 
 # ============================================================================

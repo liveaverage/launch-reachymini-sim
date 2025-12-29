@@ -1,7 +1,15 @@
-# Caddy configuration for Pipecat WebRTC with TLS
+# Caddy configuration for Reachy Mini Pipecat
+# All services proxied through HTTPS with self-signed certificate
 # Browser microphone/camera access requires HTTPS (secure context)
 
-# Pipecat WebRTC signaling - HTTPS on 7860, proxy to internal 7880
+{
+    # Global options
+    auto_https off
+}
+
+# =============================================================================
+# Pipecat WebRTC - HTTPS on 7860, proxy to internal 7880
+# =============================================================================
 :7860 {
     tls /etc/caddy/cert.pem /etc/caddy/key.pem
 
@@ -15,15 +23,14 @@
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Proto https
     }
 
-    # Regular HTTP requests
     reverse_proxy localhost:7880 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Proto https
     }
 
     log {
@@ -32,7 +39,73 @@
     }
 }
 
+# =============================================================================
+# noVNC - HTTPS on 6090, proxy to internal 6080
+# =============================================================================
+:6090 {
+    tls /etc/caddy/cert.pem /etc/caddy/key.pem
+
+    # WebSocket upgrade for VNC
+    @websocket {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+
+    reverse_proxy @websocket localhost:6080 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto https
+    }
+
+    reverse_proxy localhost:6080 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto https
+    }
+
+    log {
+        output file /var/log/caddy/novnc.log
+        level INFO
+    }
+}
+
+# =============================================================================
+# Dashboard - HTTPS on 8443, proxy to internal 8000
+# =============================================================================
+:8443 {
+    tls /etc/caddy/cert.pem /etc/caddy/key.pem
+
+    # WebSocket upgrade for dashboard
+    @websocket {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+
+    reverse_proxy @websocket localhost:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto https
+    }
+
+    reverse_proxy localhost:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto https
+    }
+
+    log {
+        output file /var/log/caddy/dashboard.log
+        level INFO
+    }
+}
+
+# =============================================================================
 # NAT API - HTTPS on 8002, proxy to internal 8001
+# =============================================================================
 :8002 {
     tls /etc/caddy/cert.pem /etc/caddy/key.pem
 
@@ -40,7 +113,7 @@
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Proto https
     }
 
     log {
@@ -49,3 +122,34 @@
     }
 }
 
+# =============================================================================
+# Jupyter Lab - HTTPS on 8889, proxy to internal 8888
+# =============================================================================
+:8889 {
+    tls /etc/caddy/cert.pem /etc/caddy/key.pem
+
+    # WebSocket upgrade for Jupyter
+    @websocket {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+
+    reverse_proxy @websocket localhost:8888 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto https
+    }
+
+    reverse_proxy localhost:8888 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto https
+    }
+
+    log {
+        output file /var/log/caddy/jupyter.log
+        level INFO
+    }
+}
