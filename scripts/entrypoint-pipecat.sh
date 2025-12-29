@@ -42,7 +42,8 @@ echo ""
 # -----------------------------------------------------------------------------
 echo "🔐 Setting up VNC password..."
 mkdir -p /root/.vnc
-echo "reachy" | x11vnc -storepasswd /root/.vnc/passwd
+# Create password file non-interactively (password twice for verification)
+printf "reachy\nreachy\n" | x11vnc -storepasswd /root/.vnc/passwd 2>/dev/null
 chmod 600 /root/.vnc/passwd
 echo "✅ VNC password configured"
 echo ""
