@@ -122,34 +122,3 @@
     }
 }
 
-# =============================================================================
-# Jupyter Lab - HTTPS on 8889, proxy to internal 8888
-# =============================================================================
-:8889 {
-    tls /etc/caddy/cert.pem /etc/caddy/key.pem
-
-    # WebSocket upgrade for Jupyter
-    @websocket {
-        header Connection *Upgrade*
-        header Upgrade websocket
-    }
-
-    reverse_proxy @websocket localhost:8888 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto https
-    }
-
-    reverse_proxy localhost:8888 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto https
-    }
-
-    log {
-        output file /var/log/caddy/jupyter.log
-        level INFO
-    }
-}
