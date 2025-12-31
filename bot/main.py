@@ -104,6 +104,7 @@ def get_webrtc_params():
 
 # ============================================================================
 # END CUSTOM BLOCK - Safe to merge upstream changes below
+# NOTE: bot/services/speech_tapper.py uses 2x tuning values for simulation
 # ============================================================================
 
 
@@ -208,6 +209,10 @@ Be helpful, curious, and express your robot personality!""",
             
             # Set the user_id for automatic image fetching
             llm.set_user_id(client_id)
+            
+            # Don't freeze the robot - let it breathe naturally (antennas will sway)
+            # The wobbler processor will handle movements during speech
+            logger.info("Client ready - robot will breathe naturally until speaking")
 
             # Kick off the conversation.
             messages.append(

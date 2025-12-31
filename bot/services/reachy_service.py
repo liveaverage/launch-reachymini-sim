@@ -88,10 +88,17 @@ class ReachyService:
             self.wobbler.feed(audio_chunk_base64)
     
     def set_listening_pose(self):
-        """Sets robot back to listening/idle pose."""
+        """Sets robot back to natural breathing/idle state (not frozen).
+        
+        🔒 SIMULATION FIX: Upstream uses set_listening(True) which freezes antennas
+        and suppresses breathing - robot appears completely frozen. We use False
+        to allow natural breathing with antenna sway. This is likely a bug in
+        upstream that should be fixed there too.
+        """
         if self.motion_manager:
-            self.motion_manager.set_listening(True)
-            logger.info("Reachy set to listening pose")
+            # False = allow breathing/antenna sway (not listening/frozen)
+            self.motion_manager.set_listening(False)
+            logger.info("Reachy set to natural breathing state (antennas will sway)")
 
     def look_at(self, direction: str):
         """Maps semantic direction to robot pose."""
