@@ -53,3 +53,4 @@ htmlcov/
 .tox/
 .mypy_cache/
 
+scripts/check_upstream_changes.sh

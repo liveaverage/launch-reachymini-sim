@@ -16,11 +16,11 @@ from .speech_tapper import HOP_MS, SwayRollRT
 
 SAMPLE_RATE = 24000
 # Downsample to reduce load on simulator
-DOWNSAMPLE_RATE = 8000  # More aggressive: 24k→8k (was 16k)
+DOWNSAMPLE_RATE = 16000
 # Limit queue to prevent overwhelming simulator
-MAX_QUEUE_SIZE = 100  # Increased buffer (was 50)
+MAX_QUEUE_SIZE = 50
 # seconds between audio and robot movement
-MOVEMENT_LATENCY_S = 0.05  # Reduced latency (was 0.08)
+MOVEMENT_LATENCY_S = 0.08
 logger = logging.getLogger(__name__)
 
 
@@ -69,27 +69,16 @@ class HeadWobbler:
         with self._state_lock:
             generation = self._generation
 
-        # Try to add to queue, but don't block if full
+        # Try to add to queue, but don't block if full (drop oldest/skip)
         try:
             self.audio_queue.put_nowait(
                 (generation, DOWNSAMPLE_RATE, buf)
             )
         except queue.Full:
-            # Queue is full - proactively drop oldest chunks to make room
-            try:
-                # Remove one old chunk to make space
-                self.audio_queue.get_nowait()
-                self.audio_queue.task_done()
-                # Now try to add new chunk
-                self.audio_queue.put_nowait(
-                    (generation, DOWNSAMPLE_RATE, buf)
-                )
-            except (queue.Full, queue.Empty):
-                # Still full or got emptied by worker - just drop this chunk
-                pass
-            
+            # Queue is full - simulator is overwhelmed
+            # Drop this chunk to prevent freezing
             self._dropped_chunks += 1
-            if self._dropped_chunks % 50 == 1:  # Log every 50th drop (reduced noise)
+            if self._dropped_chunks % 10 == 1:  # Log every 10th drop
                 logger.warning(
                     "Audio queue full, dropped %d chunks total",
                     self._dropped_chunks

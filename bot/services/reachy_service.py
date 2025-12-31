@@ -54,10 +54,9 @@ class ReachyService:
             self.robot = ReachyMini(
                 use_sim=True,
                 spawn_daemon=False,
-                localhost_only=False,
-                media_backend='no_media',  # Don't open camera/audio (daemon handles it)
-                timeout=15.0,
-                log_level='DEBUG'
+                localhost_only=False,     
+                timeout=15.0,          # Increased timeout
+                log_level='DEBUG'      
             )
             logger.info("Successfully connected to Reachy Mini daemon")
             
