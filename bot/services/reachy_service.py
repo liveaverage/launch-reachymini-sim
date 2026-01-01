@@ -49,14 +49,19 @@ class ReachyService:
             logger.info("Waiting for display to be ready...")
             time.sleep(3)
             
-            logger.info(f"Starting Reachy Mini daemon (expecting sim mode)...")
+            # 🔒 CUSTOM: Configurable media backend for sim vs physical
+            # - 'no_media' (default): For sim or when daemon handles camera
+            # - 'default' or None: For physical robot with direct camera access
+            media_backend = os.getenv('REACHY_MEDIA_BACKEND', 'no_media')
+            logger.info(f"Starting Reachy Mini with media_backend='{media_backend}'...")
             
             self.robot = ReachyMini(
                 use_sim=True,
                 spawn_daemon=False,
-                localhost_only=False,     
-                timeout=15.0,          # Increased timeout
-                log_level='DEBUG'      
+                localhost_only=False,
+                media_backend=media_backend if media_backend != 'default' else None,
+                timeout=15.0,
+                log_level='DEBUG'
             )
             logger.info("Successfully connected to Reachy Mini daemon")
             
