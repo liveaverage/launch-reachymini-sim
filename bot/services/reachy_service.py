@@ -49,13 +49,17 @@ class ReachyService:
             logger.info("Waiting for display to be ready...")
             time.sleep(3)
             
-            logger.info(f"Starting Reachy Mini daemon (expecting sim mode)...")
+            # 🔒 CUSTOM: Configurable media backend for sim vs physical
+            # - 'no_media' (default): For sim or when daemon handles camera
+            # - 'default' or None: For physical robot with direct camera access
+            media_backend = os.getenv('REACHY_MEDIA_BACKEND', 'no_media')
+            logger.info(f"Starting Reachy Mini with media_backend='{media_backend}'...")
             
             self.robot = ReachyMini(
                 use_sim=True,
                 spawn_daemon=False,
                 localhost_only=False,
-                media_backend='no_media',  # Don't open camera/audio (daemon handles it)
+                media_backend=media_backend if media_backend != 'default' else None,
                 timeout=15.0,
                 log_level='DEBUG'
             )
@@ -89,10 +93,17 @@ class ReachyService:
             self.wobbler.feed(audio_chunk_base64)
     
     def set_listening_pose(self):
-        """Sets robot back to listening/idle pose."""
+        """Sets robot back to natural breathing/idle state (not frozen).
+        
+        🔒 SIMULATION FIX: Upstream uses set_listening(True) which freezes antennas
+        and suppresses breathing - robot appears completely frozen. We use False
+        to allow natural breathing with antenna sway. This is likely a bug in
+        upstream that should be fixed there too.
+        """
         if self.motion_manager:
-            self.motion_manager.set_listening(True)
-            logger.info("Reachy set to listening pose")
+            # False = allow breathing/antenna sway (not listening/frozen)
+            self.motion_manager.set_listening(False)
+            logger.info("Reachy set to natural breathing state (antennas will sway)")
 
     def look_at(self, direction: str):
         """Maps semantic direction to robot pose."""

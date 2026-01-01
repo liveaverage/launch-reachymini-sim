@@ -284,7 +284,15 @@ export RESOLUTION=2560x1440    # Higher resolution
 
 # OpenAI API key (for conversation app)
 export OPENAI_API_KEY=sk-...
+
+# Media backend mode (Pipecat variant only)
+export REACHY_MEDIA_BACKEND=no_media  # Default: for sim or when daemon handles camera
+export REACHY_MEDIA_BACKEND=default   # For physical robot with direct camera access
 ```
+
+**Note on `REACHY_MEDIA_BACKEND`:**
+- `no_media` (default): Bot connects to existing daemon, no direct camera/audio initialization
+- `default`: Bot manages camera/audio directly (use for physical robot without daemon)
 
 ### Launch with Custom Settings
 

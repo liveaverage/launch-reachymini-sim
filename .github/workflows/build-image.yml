@@ -6,10 +6,16 @@
 #   - standard: Original Gradio conversation app
 #
 # Triggers:
-#   - Push to main/develop branches
+#   - Push to ANY branch (builds branch-tagged images)
 #   - Pull requests to main
 #   - Manual dispatch (with variant selection)
 #   - Weekly rebuild (Sundays at 00:00 UTC)
+#
+# Image Tags Generated:
+#   - main branch: latest
+#   - develop branch: develop
+#   - feature branches: branch name (e.g., update-upstream-20250101)
+#   - All pushes: sha-<commit>, YYYYMMDD
 # =============================================================================
 
 name: Build and Push Docker Image
@@ -17,8 +23,7 @@ name: Build and Push Docker Image
 on:
   push:
     branches:
-      - main
-      - develop
+      - '**'  # Build on all branches
     paths:
       - 'Dockerfile'
       - 'Dockerfile.pipecat'
@@ -96,6 +101,7 @@ jobs:
           tags: |
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
             type=raw,value=develop,enable=${{ github.ref == format('refs/heads/{0}', 'develop') }}
+            type=ref,event=branch,enable=${{ github.ref != format('refs/heads/{0}', 'main') && github.ref != format('refs/heads/{0}', 'develop') }}
             type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != 'latest' }}
             type=sha,prefix=sha-
             type=raw,value={{date 'YYYYMMDD'}}
@@ -171,6 +177,7 @@ jobs:
           tags: |
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
             type=raw,value=develop,enable=${{ github.ref == format('refs/heads/{0}', 'develop') }}
+            type=ref,event=branch,enable=${{ github.ref != format('refs/heads/{0}', 'main') && github.ref != format('refs/heads/{0}', 'develop') }}
             type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != 'latest' }}
             type=sha,prefix=sha-
             type=raw,value={{date 'YYYYMMDD'}}

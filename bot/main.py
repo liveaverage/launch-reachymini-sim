@@ -18,6 +18,8 @@ from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.processors.aggregators.llm_response_universal import LLMContextAggregatorPair
+from pipecat.processors.frameworks.rtvi import RTVIProcessor, RTVIObserver
+from pipecat.processors.transcript_processor import TranscriptProcessor
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import (
     create_transport,
@@ -36,6 +38,11 @@ from services.processor import ReachyWobblerProcessor
 
 
 load_dotenv(override=True)
+
+# ============================================================================
+# 🔒 CUSTOM: Container/Remote Access Configuration
+# DO NOT OVERWRITE when merging upstream - these env vars enable remote WebRTC
+# ============================================================================
 
 # NAT server URL - in container, runs locally
 NAT_BASE_URL = os.getenv("NAT_BASE_URL", "http://localhost:8001/v1")
@@ -95,6 +102,11 @@ def get_webrtc_params():
     
     return params
 
+# ============================================================================
+# END CUSTOM BLOCK - Safe to merge upstream changes below
+# NOTE: bot/services/speech_tapper.py uses 2x tuning values for simulation
+# ============================================================================
+
 
 # Transport parameters for different connection types
 transport_params = {
@@ -109,7 +121,7 @@ transport_params = {
 
 
 async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
-    logger.info("Starting Pipecat bot with NAT backend")
+    logger.info("Starting bot")
 
     # Get Reachy service singleton and ensure fresh state
     from services.reachy_service import ReachyService
@@ -135,12 +147,13 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
 
         llm = NATVisionLLMService(
             api_key=os.getenv("NVIDIA_API_KEY"),
-            base_url=NAT_BASE_URL,
+            base_url=NAT_BASE_URL,  # 🔒 CUSTOM: Uses containerized NAT endpoint
         )
 
         messages = [
             {
                 "role": "system",
+                # 🔒 CUSTOM: Reachy Mini-specific personality (upstream uses generic prompt)
                 "content": """You are Reachy Mini, a friendly desktop robot assistant powered by NVIDIA Nemotron.
 You can see through your camera and hear through the microphone. 
 Your responses are spoken aloud, so keep them conversational and avoid special characters.
@@ -151,16 +164,21 @@ Be helpful, curious, and express your robot personality!""",
 
         context = LLMContext(messages)
         context_aggregator = LLMContextAggregatorPair(context)
+        transcript = TranscriptProcessor()
+        rtvi = RTVIProcessor()
 
         pipeline = Pipeline(
             [
                 transport.input(),  # Transport user input
+                rtvi,  # RTVI protocol processor
                 stt,  # STT
+                transcript.user(),  # Capture user transcripts
                 context_aggregator.user(),  # User responses
                 llm,  # LLM (via NAT router)
                 tts,  # TTS
                 ReachyWobblerProcessor(),  # Robot head movement
                 transport.output(),  # Transport bot output
+                transcript.assistant(),  # Capture assistant transcripts
                 context_aggregator.assistant(),  # Assistant spoken responses
             ]
         )
@@ -171,8 +189,15 @@ Be helpful, curious, and express your robot personality!""",
                 enable_metrics=True,
                 enable_usage_metrics=True,
             ),
+            observers=[RTVIObserver(rtvi)],
             idle_timeout_secs=runner_args.pipeline_idle_timeout_secs,
         )
+
+        @transcript.event_handler("on_transcript_update")
+        async def handle_transcript_update(processor, frame):
+            """Handle transcript updates and send them to the web UI"""
+            for message in frame.messages:
+                logger.info(f"Transcript [{message.role}]: {message.content}")
 
         @transport.event_handler("on_client_connected")
         async def on_client_connected(transport, client):
@@ -184,12 +209,16 @@ Be helpful, curious, and express your robot personality!""",
             
             # Set the user_id for automatic image fetching
             llm.set_user_id(client_id)
+            
+            # Don't freeze the robot - let it breathe naturally (antennas will sway)
+            # The wobbler processor will handle movements during speech
+            logger.info("Client ready - robot will breathe naturally until speaking")
 
-            # Greet the user
+            # Kick off the conversation.
             messages.append(
                 {
                     "role": "system",
-                    "content": "A user just connected. Greet them warmly and let them know you can see and hear them!",
+                    "content": "Say hello!",
                 }
             )
             await task.queue_frames([LLMRunFrame()])
