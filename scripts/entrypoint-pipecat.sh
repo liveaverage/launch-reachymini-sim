@@ -12,7 +12,7 @@ echo "=============================================="
 # -----------------------------------------------------------------------------
 # Environment Setup
 # -----------------------------------------------------------------------------
-export DISPLAY=${DISPLAY:-:1}
+export DISPLAY=${DISPLAY:-:99}  # Use :99 for headless (won't conflict with local :0 or :1)
 export RESOLUTION=${RESOLUTION:-1024x768}
 export REACHY_SCENE=${REACHY_SCENE:-empty}
 export NOVNC_PORT=${NOVNC_PORT:-6080}
@@ -42,6 +42,33 @@ echo ""
 # -----------------------------------------------------------------------------
 if [ -f /patch-websocket.sh ]; then
     /patch-websocket.sh
+fi
+echo ""
+
+# -----------------------------------------------------------------------------
+# Clean up stale X11 locks for our display (prevents Xvfb startup failures)
+# Only cleans display :1 (container), never touches :0 (host desktop if present)
+# -----------------------------------------------------------------------------
+echo "🧹 Preparing X11 environment..."
+mkdir -p /tmp/.X11-unix
+chmod 1777 /tmp/.X11-unix
+
+# Extract display number (e.g., ":1" -> "1")
+DISPLAY_NUM="${DISPLAY#:}"
+
+# Only clean if display appears stale (lock exists but no process)
+if [ -f "/tmp/.X${DISPLAY_NUM}-lock" ]; then
+    # Check if the PID in the lock file is actually running
+    LOCK_PID=$(cat "/tmp/.X${DISPLAY_NUM}-lock" 2>/dev/null || echo "")
+    if [ -n "$LOCK_PID" ] && ! ps -p "$LOCK_PID" > /dev/null 2>&1; then
+        echo "   Found stale X11 lock for display ${DISPLAY}, cleaning..."
+        rm -f "/tmp/.X${DISPLAY_NUM}-lock" "/tmp/.X11-unix/X${DISPLAY_NUM}" 2>/dev/null || true
+        echo "   ✓ Stale locks removed"
+    else
+        echo "   ⚠️  Display ${DISPLAY} already active (will retry with different display)"
+    fi
+else
+    echo "   ✓ No stale locks for display ${DISPLAY}"
 fi
 echo ""
 
