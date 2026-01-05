@@ -77,15 +77,27 @@ export REACHY_IMAGE=ghcr.io/liveaverage/reachy-mini-sim:latest
 ### Building Images Locally
 
 ```bash
-# Build Pipecat image (default)
+# Build Pipecat image (default) - auto-detects architecture
 docker build -f Dockerfile.pipecat -t reachy-mini-pipecat:local .
 
-# Build Standard image
+# Build Standard image - auto-detects architecture
 docker build -f Dockerfile -t reachy-mini-sim:local .
+
+# Multi-arch build (amd64 + arm64) using buildx
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -f Dockerfile.pipecat -t reachy-mini-pipecat:multi-arch .
 
 # Run local build
 REACHY_IMAGE=reachy-mini-pipecat:local ./scripts/start_pipecat.sh
 ```
+
+#### Supported Architectures
+
+Both images support:
+- **`linux/amd64`**: NVIDIA datacenter GPUs (Tesla, RTX, etc.)
+- **`linux/arm64`**: NVIDIA Jetson devices (Orin, Xavier, Nano) and ARM64 servers with NVIDIA GPUs
+
+**Note:** ARM64 requires NVIDIA GPU support (Jetson platform). For Apple Silicon or AWS Graviton (no NVIDIA GPU), contact maintainers for CPU rendering variant.
 
 ### GitHub Actions Build
 

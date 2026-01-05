@@ -5,6 +5,8 @@
 #   - pipecat (default): Full Pipecat + NAT stack with WebRTC
 #   - standard: Original Gradio conversation app
 #
+# Multi-arch support: Builds for linux/amd64 and linux/arm64 (NVIDIA Jetson)
+#
 # Triggers:
 #   - Push to ANY branch (builds branch-tagged images)
 #   - Pull requests to main
@@ -111,6 +113,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.pipecat
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -129,6 +132,8 @@ jobs:
           echo "**Registry:** \`${{ env.REGISTRY }}/${{ env.OWNER }}/reachy-mini-pipecat\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Features:** Pipecat WebRTC + NeMo Agent Toolkit + ElevenLabs" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Architectures:** \`linux/amd64\`, \`linux/arm64\` (NVIDIA Jetson)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
@@ -187,6 +192,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -205,6 +211,8 @@ jobs:
           echo "**Registry:** \`${{ env.REGISTRY }}/${{ env.OWNER }}/reachy-mini-sim\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Features:** Gradio Conversation App + OpenAI Realtime" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Architectures:** \`linux/amd64\`, \`linux/arm64\` (NVIDIA Jetson)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
